@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview"
   },
+  "proxy": "http://localhost:3000",
   "dependencies": {
     "bootstrap": "^5.3.3",
     "react": "^18.3.1",

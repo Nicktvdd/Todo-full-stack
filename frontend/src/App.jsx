@@ -1,48 +1,99 @@
-import React, { Component } from "react";
-import "./styles.css"
-
-const todoItems = [
-  {
-    id: 1,
-    title: "Go to Market",
-    description: "Buy ingredients to prepare dinner",
-    completed: true,
-  },
-  {
-    id: 2,
-    title: "Study",
-    description: "Read Algebra and History textbook for the upcoming test",
-    completed: false,
-  },
-  {
-    id: 3,
-    title: "Sammy's books",
-    description: "Go to library to return Sammy's books",
-    completed: true,
-  },
-  {
-    id: 4,
-    title: "Article",
-    description: "Write article on how to use Django with React",
-    completed: false,
-  },
-];
+import { Component } from "react";
+import "./styles.css";
 
 class App extends Component {
   constructor(props) {
     super(props);
     this.state = {
       viewCompleted: false,
-      todoList: todoItems,
+      todoList: [],
+      editingTodo: null, // State to track the currently edited todo
+      editingText: "", // State to track the text being edited
     };
   }
 
-  displayCompleted = (status) => {
-    if (status) {
-      return this.setState({ viewCompleted: true });
-    }
+  componentDidMount() {
+    this.refreshList();
+  }
 
-    return this.setState({ viewCompleted: false });
+  refreshList = () => {
+    fetch("/todos")
+      .then((response) => response.json())
+      .then((data) => this.setState({ todoList: data }))
+      .catch((error) => console.error("Error fetching todos:", error));
+  };
+
+  displayCompleted = (status) => {
+    this.setState({ viewCompleted: status });
+  };
+
+  handleAdd = () => {
+    const newTodo = {
+      text: "New Task text",
+    };
+
+    fetch("/todos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(newTodo),
+    })
+      .then(this.refreshList)
+      .catch((error) => console.error("Error adding todo:", error));
+  };
+
+  handleEditClick = (todo) => {
+    this.setState({ editingTodo: todo.id, editingText: todo.text });
+  };
+
+  handleEditChange = (event) => {
+    this.setState({ editingText: event.target.value });
+  };
+
+  handleSave = (id) => {
+    const updatedTodo = {
+      text: this.state.editingText,
+      completed: this.state.todoList.find(todo => todo.id === id).completed,
+    };
+
+    fetch(`/todos/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updatedTodo),
+    })
+      .then(() => {
+        this.setState({ editingTodo: null, editingText: "" });
+        this.refreshList();
+      })
+      .catch((error) => console.error("Error editing todo:", error));
+  };
+
+  handleDelete = (id) => {
+    fetch(`/todos/${id}`, {
+      method: "DELETE",
+    })
+      .then(this.refreshList)
+      .catch((error) => console.error("Error deleting todo:", error));
+  };
+
+  handleToggleComplete = (id, completed) => {
+    const updatedTodo = {
+      completed: !completed,
+      text: this.state.todoList.find(todo => todo.id === id).text,
+    };
+
+    fetch(`/todos/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updatedTodo),
+    })
+      .then(this.refreshList)
+      .catch((error) => console.error("Error toggling todo:", error));
   };
 
   renderTabList = () => {
@@ -65,34 +116,58 @@ class App extends Component {
   };
 
   renderItems = () => {
-    const { viewCompleted } = this.state;
-    const newItems = this.state.todoList.filter(
-      (item) => item.completed == viewCompleted
-    );
+    const { viewCompleted, todoList, editingTodo, editingText } = this.state;
+    const newItems = todoList.filter((item) => item.completed === viewCompleted);
 
     return newItems.map((item) => (
       <li
         key={item.id}
         className="list-group-item d-flex justify-content-between align-items-center"
       >
-        <span
-          className={`todo-title mr-2 ${
-            this.state.viewCompleted ? "completed-todo" : ""
-          }`}
-          title={item.description}
-        >
-          {item.title}
-        </span>
-        <span>
-          <button
-            className="btn btn-secondary mr-2"
+        {editingTodo === item.id ? (
+          <input
+            type="text"
+            value={editingText}
+            onChange={this.handleEditChange}
+            className="form-control"
+          />
+        ) : (
+          <span
+            className={`todo-title mr-2 ${
+              viewCompleted ? "completed-todo" : ""
+            }`}
+            title={item.text}
           >
-            Edit
-          </button>
+            {item.text}
+          </span>
+        )}
+        <span>
+          {editingTodo === item.id ? (
+            <button
+              className="btn btn-primary mr-2"
+              onClick={() => this.handleSave(item.id)}
+            >
+              Save
+            </button>
+          ) : (
+            <button
+              className="btn btn-secondary mr-2"
+              onClick={() => this.handleEditClick(item)}
+            >
+              Edit
+            </button>
+          )}
           <button
-            className="btn btn-danger"
+            className="btn btn-danger mr-2"
+            onClick={() => this.handleDelete(item.id)}
           >
             Delete
+          </button>
+          <button
+            className="btn btn-success"
+            onClick={() => this.handleToggleComplete(item.id, item.completed)}
+          >
+            {item.completed ? "Undo" : "Complete"}
           </button>
         </span>
       </li>
@@ -109,6 +184,7 @@ class App extends Component {
               <div className="mb-4">
                 <button
                   className="btn btn-primary"
+                  onClick={this.handleAdd}
                 >
                   Add task
                 </button>
