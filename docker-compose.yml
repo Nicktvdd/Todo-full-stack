@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: todo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: todouser
+      POSTGRES_PASSWORD: todopassword
+      POSTGRES_DB: tododb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todouser -d tododb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - todo-network
+
+  backend:
+    build: ./backend
+    container_name: todo-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - DB_USER=todouser
+      - DB_PASSWORD=todopassword
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=tododb
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - todo-network
+
+volumes:
+  postgres_data:
+
+networks:
+  todo-network:
+    driver: bridge
+

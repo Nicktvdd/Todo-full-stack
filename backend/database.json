@@ -6,47 +6,12 @@
   },
   {
     "id": 2,
-    "text": "Finish project updated",
-    "completed": true
+    "text": "Finish project",
+    "completed": false
   },
   {
     "id": 3,
     "text": "Go to the gym",
     "completed": true
-  },
-  {
-    "id": 1695029484319,
-    "text": "Create a post",
-    "completed": false
-  },
-  {
-    "id": 1695029569126,
-    "text": "Updated post",
-    "completed": false
-  },
-  {
-    "id": 1728233313316,
-    "text": "New Task text",
-    "completed": false
-  },
-  {
-    "id": 1728233341527,
-    "text": "New Task text",
-    "completed": true
-  },
-  {
-    "id": 1728233341927,
-    "text": "New Task text",
-    "completed": true
-  },
-  {
-    "id": 1728233765669,
-    "text": "New Task tex",
-    "completed": false
-  },
-  {
-    "id": 1728233842268,
-    "text": "New Task text",
-    "completed": false
   }
 ]
