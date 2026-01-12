@@ -58,7 +58,7 @@ class App extends Component {
     };
 
     fetch(`/todos/${id}`, {
-      method: "PUT",
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
@@ -86,7 +86,7 @@ class App extends Component {
     };
 
     fetch(`/todos/${id}`, {
-      method: "PUT",
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json",
       },
