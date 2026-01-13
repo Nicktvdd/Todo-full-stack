@@ -1,23 +1,33 @@
 import { useState, useEffect } from 'react';
-import './styles.css'; 
+import './styles.css'
 
 export default function App() {
-  // 1. STATE MANAGEMENT
-  const [todoList, setTodoList] = useState([]); // List from backend
-  const [viewCompleted, setViewCompleted] = useState(false); // Tab state (false = Incomplete, true = Complete)
-  const [inputValue, setInputValue] = useState(""); // Add form input
+  // =========================================================================
+  // 1. STATE MANAGEMENT (The "Brain" of the component)
+  // =========================================================================
   
-  // Edit Mode State
+  // Stores the list of tasks fetched from the backend
+  const [todoList, setTodoList] = useState([]);
+  
+  // Controls which tab is active (false = Incomplete, true = Complete)
+  const [viewCompleted, setViewCompleted] = useState(false);
+  
+  // Controls the text in the "Add Task" input field
+  const [inputValue, setInputValue] = useState("");
+  
+  // Tracks which item is being edited (ID) and the text being typed
   const [editingTodoId, setEditingTodoId] = useState(null);
   const [editingText, setEditingText] = useState("");
 
-  // 2. BACKEND INTEGRATION (Effects)
-  
-  // Equivalent to componentDidMount
-  useEffect(() => {
-    refreshList();
-  }, []);
 
+  // =========================================================================
+  // 2. BACKEND INTEGRATION (Side Effects)
+  // =========================================================================
+
+  /**
+   * Fetches the latest list of todos from the API.
+   * We call this whenever we add, delete, or update a task to keep UI in sync.
+   */
   const refreshList = () => {
     fetch("/todos")
       .then((res) => res.json())
@@ -25,11 +35,23 @@ export default function App() {
       .catch((err) => console.error("Error fetching todos:", err));
   };
 
-  // 3. HANDLERS (CRUD)
+  /**
+   * useEffect: Runs once when the component mounts.
+   * This replaces componentDidMount() from class components.
+   */
+  useEffect(() => {
+    refreshList();
+  }, []);
 
+
+  // =========================================================================
+  // 3. EVENT HANDLERS (Interactivity)
+  // =========================================================================
+
+  // --- CREATE ---
   const handleAdd = (e) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
+    e.preventDefault(); // Prevent full page reload
+    if (!inputValue.trim()) return; // Don't submit empty tasks
 
     const newTodo = { text: inputValue, completed: false };
 
@@ -38,18 +60,20 @@ export default function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newTodo),
     })
-      .then(refreshList)
+      .then(refreshList) // Refresh list after successful add
       .catch((err) => console.error("Error adding todo:", err));
     
-    setInputValue("");
+    setInputValue(""); // Clear the input field
   };
 
+  // --- DELETE ---
   const handleDelete = (id) => {
     fetch(`/todos/${id}`, { method: "DELETE" })
       .then(refreshList)
       .catch((err) => console.error("Error deleting todo:", err));
   };
 
+  // --- UPDATE (Toggle Completion) ---
   const handleToggleComplete = (id, currentStatus, text) => {
     const updatedTodo = { text: text, completed: !currentStatus };
 
@@ -62,8 +86,7 @@ export default function App() {
       .catch((err) => console.error("Error toggling todo:", err));
   };
 
-  // 4. EDIT LOGIC
-  
+  // --- UPDATE (Edit Text) ---
   const startEditing = (todo) => {
     setEditingTodoId(todo.id);
     setEditingText(todo.text);
@@ -78,14 +101,19 @@ export default function App() {
       body: JSON.stringify(updatedTodo),
     })
       .then(() => {
-        setEditingTodoId(null);
+        setEditingTodoId(null); // Exit edit mode
         refreshList();
       })
       .catch((err) => console.error("Error updating todo:", err));
   };
 
-  // 5. HELPER FOR RENDERING
+
+  // =========================================================================
+  // 4. RENDER HELPERS (Presentation Logic)
+  // =========================================================================
+
   const renderItems = () => {
+    // Filter the list based on which tab is active
     const filteredItems = todoList.filter(
       (item) => item.completed === viewCompleted
     );
@@ -96,21 +124,32 @@ export default function App() {
 
     return filteredItems.map((item) => (
       <li key={item.id} className="todo-item">
-        {/* If editing this specific item, show input. Otherwise show text. */}
+        
+        {/* CONDITIONAL RENDERING: Edit Mode vs View Mode */}
         {editingTodoId === item.id ? (
+          
+          // --- VIEW: EDIT MODE ---
           <div className="edit-mode">
             <input
               type="text"
               value={editingText}
               onChange={(e) => setEditingText(e.target.value)}
               className="edit-input"
+              autoFocus
             />
             <div className="action-buttons">
-              <button className="btn btn-save" onClick={() => saveEdit(item.id, item.completed)}>Save</button>
-              <button className="btn btn-cancel" onClick={() => setEditingTodoId(null)}>Cancel</button>
+              <button className="btn-save" onClick={() => saveEdit(item.id, item.completed)}>
+                Save
+              </button>
+              <button className="btn-cancel" onClick={() => setEditingTodoId(null)}>
+                Cancel
+              </button>
             </div>
           </div>
+
         ) : (
+          
+          // --- VIEW: DISPLAY MODE ---
           <>
             <span 
                 className={`todo-text ${item.completed ? 'completed' : ''}`}
@@ -118,21 +157,22 @@ export default function App() {
             >
               {item.text}
             </span>
+            
             <div className="action-buttons">
                <button 
-                className="btn btn-secondary"
+                className="btn-secondary"
                 onClick={() => startEditing(item)}
               >
                 Edit
               </button>
               <button 
-                className={`btn ${item.completed ? 'btn-undo' : 'btn-success'}`}
+                className={item.completed ? 'btn-undo' : 'btn-success'}
                 onClick={() => handleToggleComplete(item.id, item.completed, item.text)}
               >
                 {item.completed ? "Undo" : "Done"}
               </button>
               <button 
-                className="btn btn-danger"
+                className="btn-danger"
                 onClick={() => handleDelete(item.id)}
               >
                 Delete
@@ -144,12 +184,17 @@ export default function App() {
     ));
   };
 
+
+  // =========================================================================
+  // 5. MAIN RENDER (The UI)
+  // =========================================================================
+
   return (
     <div className="app-container">
-
+      
       <h1>My Tasks</h1>
       
-      {/* 1. ADD FORM */}
+      {/* 1. INPUT FORM */}
       <form onSubmit={handleAdd} className="todo-form">
         <input 
           type="text" 
@@ -157,10 +202,10 @@ export default function App() {
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
         />
-        <button type="submit" className="btn btn-add">Add</button>
+        <button type="submit" className="btn-add">Add Task</button>
       </form>
 
-      {/* 2. TABS */}
+      {/* 2. TAB NAVIGATION */}
       <div className="nav-tabs">
         <span
           className={`nav-link ${!viewCompleted ? "active" : ""}`}
@@ -176,7 +221,7 @@ export default function App() {
         </span>
       </div>
 
-      {/* 3. LIST */}
+      {/* 3. TASK LIST */}
       <ul>
         {renderItems()}
       </ul>
