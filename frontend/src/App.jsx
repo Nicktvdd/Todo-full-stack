@@ -1,204 +1,185 @@
-import { Component } from "react";
-import "./styles.css";
+import { useState, useEffect } from 'react';
+import './styles.css'; 
 
-class App extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      viewCompleted: false,
-      todoList: [],
-      editingTodo: null, // State to track the currently edited todo
-      editingText: "", // State to track the text being edited
-    };
-  }
+export default function App() {
+  // 1. STATE MANAGEMENT
+  const [todoList, setTodoList] = useState([]); // List from backend
+  const [viewCompleted, setViewCompleted] = useState(false); // Tab state (false = Incomplete, true = Complete)
+  const [inputValue, setInputValue] = useState(""); // Add form input
+  
+  // Edit Mode State
+  const [editingTodoId, setEditingTodoId] = useState(null);
+  const [editingText, setEditingText] = useState("");
 
-  componentDidMount() {
-    this.refreshList();
-  }
+  // 2. BACKEND INTEGRATION (Effects)
+  
+  // Equivalent to componentDidMount
+  useEffect(() => {
+    refreshList();
+  }, []);
 
-  refreshList = () => {
+  const refreshList = () => {
     fetch("/todos")
-      .then((response) => response.json())
-      .then((data) => this.setState({ todoList: data }))
-      .catch((error) => console.error("Error fetching todos:", error));
+      .then((res) => res.json())
+      .then((data) => setTodoList(data))
+      .catch((err) => console.error("Error fetching todos:", err));
   };
 
-  displayCompleted = (status) => {
-    this.setState({ viewCompleted: status });
-  };
+  // 3. HANDLERS (CRUD)
 
-  handleAdd = () => {
-    const newTodo = {
-      text: "New Task text",
-    };
+  const handleAdd = (e) => {
+    e.preventDefault();
+    if (!inputValue.trim()) return;
+
+    const newTodo = { text: inputValue, completed: false };
 
     fetch("/todos", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newTodo),
     })
-      .then(this.refreshList)
-      .catch((error) => console.error("Error adding todo:", error));
+      .then(refreshList)
+      .catch((err) => console.error("Error adding todo:", err));
+    
+    setInputValue("");
   };
 
-  handleEditClick = (todo) => {
-    this.setState({ editingTodo: todo.id, editingText: todo.text });
+  const handleDelete = (id) => {
+    fetch(`/todos/${id}`, { method: "DELETE" })
+      .then(refreshList)
+      .catch((err) => console.error("Error deleting todo:", err));
   };
 
-  handleEditChange = (event) => {
-    this.setState({ editingText: event.target.value });
-  };
-
-  handleSave = (id) => {
-    const updatedTodo = {
-      text: this.state.editingText,
-      completed: this.state.todoList.find(todo => todo.id === id).completed,
-    };
+  const handleToggleComplete = (id, currentStatus, text) => {
+    const updatedTodo = { text: text, completed: !currentStatus };
 
     fetch(`/todos/${id}`, {
       method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedTodo),
+    })
+      .then(refreshList)
+      .catch((err) => console.error("Error toggling todo:", err));
+  };
+
+  // 4. EDIT LOGIC
+  
+  const startEditing = (todo) => {
+    setEditingTodoId(todo.id);
+    setEditingText(todo.text);
+  };
+
+  const saveEdit = (id, currentStatus) => {
+    const updatedTodo = { text: editingText, completed: currentStatus };
+
+    fetch(`/todos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updatedTodo),
     })
       .then(() => {
-        this.setState({ editingTodo: null, editingText: "" });
-        this.refreshList();
+        setEditingTodoId(null);
+        refreshList();
       })
-      .catch((error) => console.error("Error editing todo:", error));
+      .catch((err) => console.error("Error updating todo:", err));
   };
 
-  handleDelete = (id) => {
-    fetch(`/todos/${id}`, {
-      method: "DELETE",
-    })
-      .then(this.refreshList)
-      .catch((error) => console.error("Error deleting todo:", error));
-  };
-
-  handleToggleComplete = (id, completed) => {
-    const updatedTodo = {
-      completed: !completed,
-      text: this.state.todoList.find(todo => todo.id === id).text,
-    };
-
-    fetch(`/todos/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(updatedTodo),
-    })
-      .then(this.refreshList)
-      .catch((error) => console.error("Error toggling todo:", error));
-  };
-
-  renderTabList = () => {
-    return (
-      <div className="nav nav-tabs">
-        <span
-          className={this.state.viewCompleted ? "nav-link active" : "nav-link"}
-          onClick={() => this.displayCompleted(true)}
-        >
-          Complete
-        </span>
-        <span
-          className={this.state.viewCompleted ? "nav-link" : "nav-link active"}
-          onClick={() => this.displayCompleted(false)}
-        >
-          Incomplete
-        </span>
-      </div>
+  // 5. HELPER FOR RENDERING
+  const renderItems = () => {
+    const filteredItems = todoList.filter(
+      (item) => item.completed === viewCompleted
     );
-  };
 
-  renderItems = () => {
-    const { viewCompleted, todoList, editingTodo, editingText } = this.state;
-    const newItems = todoList.filter((item) => item.completed === viewCompleted);
+    if (filteredItems.length === 0) {
+        return <p className="empty-msg">No {viewCompleted ? 'completed' : 'incomplete'} tasks.</p>;
+    }
 
-    return newItems.map((item) => (
-      <li
-        key={item.id}
-        className="list-group-item d-flex justify-content-between align-items-center"
-      >
-        {editingTodo === item.id ? (
-          <input
-            type="text"
-            value={editingText}
-            onChange={this.handleEditChange}
-            className="form-control"
-          />
+    return filteredItems.map((item) => (
+      <li key={item.id} className="todo-item">
+        {/* If editing this specific item, show input. Otherwise show text. */}
+        {editingTodoId === item.id ? (
+          <div className="edit-mode">
+            <input
+              type="text"
+              value={editingText}
+              onChange={(e) => setEditingText(e.target.value)}
+              className="edit-input"
+            />
+            <div className="action-buttons">
+              <button className="btn btn-save" onClick={() => saveEdit(item.id, item.completed)}>Save</button>
+              <button className="btn btn-cancel" onClick={() => setEditingTodoId(null)}>Cancel</button>
+            </div>
+          </div>
         ) : (
-          <span
-            className={`todo-title mr-2 ${
-              viewCompleted ? "completed-todo" : ""
-            }`}
-            title={item.text}
-          >
-            {item.text}
-          </span>
+          <>
+            <span 
+                className={`todo-text ${item.completed ? 'completed' : ''}`}
+                title={item.text}
+            >
+              {item.text}
+            </span>
+            <div className="action-buttons">
+               <button 
+                className="btn btn-secondary"
+                onClick={() => startEditing(item)}
+              >
+                Edit
+              </button>
+              <button 
+                className={`btn ${item.completed ? 'btn-undo' : 'btn-success'}`}
+                onClick={() => handleToggleComplete(item.id, item.completed, item.text)}
+              >
+                {item.completed ? "Undo" : "Done"}
+              </button>
+              <button 
+                className="btn btn-danger"
+                onClick={() => handleDelete(item.id)}
+              >
+                Delete
+              </button>
+            </div>
+          </>
         )}
-        <span>
-          {editingTodo === item.id ? (
-            <button
-              className="btn btn-primary mr-2"
-              onClick={() => this.handleSave(item.id)}
-            >
-              Save
-            </button>
-          ) : (
-            <button
-              className="btn btn-secondary mr-2"
-              onClick={() => this.handleEditClick(item)}
-            >
-              Edit
-            </button>
-          )}
-          <button
-            className="btn btn-danger mr-2"
-            onClick={() => this.handleDelete(item.id)}
-          >
-            Delete
-          </button>
-          <button
-            className="btn btn-success"
-            onClick={() => this.handleToggleComplete(item.id, item.completed)}
-          >
-            {item.completed ? "Undo" : "Complete"}
-          </button>
-        </span>
       </li>
     ));
   };
 
-  render() {
-    return (
-      <main className="container">
-        <h1 className="text-white text-uppercase text-center my-4">Todo app</h1>
-        <div className="row">
-          <div className="col-md-6 col-sm-10 mx-auto p-0">
-            <div className="card p-3">
-              <div className="mb-4">
-                <button
-                  className="btn btn-primary"
-                  onClick={this.handleAdd}
-                >
-                  Add task
-                </button>
-              </div>
-              {this.renderTabList()}
-              <ul className="list-group list-group-flush border-top-0">
-                {this.renderItems()}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </main>
-    );
-  }
-}
+  return (
+    <div className="app-container">
 
-export default App;
+      <h1>My Tasks</h1>
+      
+      {/* 1. ADD FORM */}
+      <form onSubmit={handleAdd} className="todo-form">
+        <input 
+          type="text" 
+          placeholder="What needs to be done?" 
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+        />
+        <button type="submit" className="btn btn-add">Add</button>
+      </form>
+
+      {/* 2. TABS */}
+      <div className="nav-tabs">
+        <span
+          className={`nav-link ${!viewCompleted ? "active" : ""}`}
+          onClick={() => setViewCompleted(false)}
+        >
+          Incomplete
+        </span>
+        <span
+          className={`nav-link ${viewCompleted ? "active" : ""}`}
+          onClick={() => setViewCompleted(true)}
+        >
+          Complete
+        </span>
+      </div>
+
+      {/* 3. LIST */}
+      <ul>
+        {renderItems()}
+      </ul>
+    </div>
+  )
+}
